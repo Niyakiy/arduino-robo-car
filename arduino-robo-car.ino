@@ -1,12 +1,13 @@
+#include <NewPing.h>
 #include <IRremote.h>
 
 // Driver PINs
-#define rightFwdPin 11
-#define rightBkwPin 10
+#define rightFwdPin   11
+#define rightBkwPin   10
 #define rightSpeedPin 5
-#define leftFwdPin 9
-#define leftBkwPin 8
-#define leftSpeedPin 6
+#define leftFwdPin    9
+#define leftBkwPin    8
+#define leftSpeedPin  6
 
 // IR Controls codes
 #define STOP_BUTTON  0x3E108
@@ -14,6 +15,12 @@
 #define DOWN_BUTTON  0x9E108
 #define RIGHT_BUTTON 0xDE108
 #define LEFT_BUTTON  0x5E108
+
+// HC-SR04 distance sensor defines
+#define TRIGGER_PIN         12
+#define ECHO_PIN            13
+#define MAX_DISTANCE        75
+#define MIN_ACTION_DISTANCE 10
 
 // movement specific defines
 #define DEFAULT_ACTION_DELAY 250
@@ -29,8 +36,8 @@ typedef enum { LEFT, RIGHT, ALL} driver_type;
 
 // GLOBALS
 int forwardSpeed;
-
 IRrecv irrecv(2);
+NewPing sonar(TRIGGER_PIN, ECHO_PIN, MAX_DISTANCE);
 
 void setup()
 {
@@ -205,6 +212,16 @@ void processControls(decode_results *results) {
   }
 }
 
+void proceed_sonar(float distance) {
+  if (distance >= 2 && distance <= MIN_ACTION_DISTANCE) {
+    // simple stop
+    Serial.print("STOPPING! Distance = ");
+    Serial.print(distance);
+    Serial.println(" cm");
+    stop();
+  }
+}
+
 void loop()
 {
   decode_results results;
@@ -213,4 +230,8 @@ void loop()
     processControls(&results);
     irrecv.resume();
   }
+
+  float distance = sonar.ping_cm();
+  proceed_sonar(distance);
+  delay(100);
 }
