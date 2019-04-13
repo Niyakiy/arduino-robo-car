@@ -1,23 +1,36 @@
 #include <IRremote.h>
 
-int rightFwdPin = 11;
-int rightBkwPin = 10;
-int rightSpeedPin = 5;
-int leftFwdPin = 9;
-int leftBkwPin = 8;
-int leftSpeedPin = 6;
+// Driver PINs
+#define rightFwdPin 11
+#define rightBkwPin 10
+#define rightSpeedPin 5
+#define leftFwdPin 9
+#define leftBkwPin 8
+#define leftSpeedPin 6
 
-int forwardSpeed = 0;
-
+// IR Controls codes
 #define STOP_BUTTON  0x3E108
 #define UP_BUTTON    0x1E108
 #define DOWN_BUTTON  0x9E108
 #define RIGHT_BUTTON 0xDE108
 #define LEFT_BUTTON  0x5E108
 
-IRrecv irrecv(2);
+// movement specific defines
+#define DEFAULT_ACTION_DELAY 250
+#define DEFAULT_SPEED_STEP 25
+#define MAX_SPEED 255
+#define MIN_SPEED 75
 
+// Global Flags
+#define DEFAULT_DEBUG_FLAG true
+
+// Custom types
 typedef enum { LEFT, RIGHT, ALL} driver_type;
+
+// GLOBALS
+int forwardSpeed;
+
+IRrecv irrecv(2);
 
 void setup()
 {
@@ -98,76 +111,106 @@ void stop(driver_type driver=ALL) {
   }
 }
 
-void change_speed(int speed_step) {
-  forwardSpeed = forwardSpeed + speed_step;
-  if (forwardSpeed > 255) {
-    forwardSpeed = 255;
+void change_speed(int speed_step, driver_type drive=ALL) {
+  int new_speed = forwardSpeed + speed_step;
+
+  // checking MAX speed boudaries
+  if (abs(new_speed) > MAX_SPEED) {
+    new_speed = new_speed > 0 ? MAX_SPEED : -MAX_SPEED;
   }
-  if (forwardSpeed < -255) {
-    forwardSpeed = -255;
+
+  // making sure not to have low speed
+  if (abs(new_speed) < MIN_SPEED) {
+    new_speed = new_speed > 0 ? MIN_SPEED : -MIN_SPEED;
   }
-  Serial.print("fwdSpeed=");
-  Serial.println(forwardSpeed);
+
+  forwardSpeed = new_speed;
+
+  if (DEFAULT_DEBUG_FLAG) {
+    Serial.print("fwdSpeed=");
+    Serial.println(forwardSpeed);
+  }
   if (forwardSpeed > 0) {
-    forward();  
+    forward(drive);
   }
   else {
-    backward();
+    backward(drive);
   }
   analogWrite(leftSpeedPin, abs(forwardSpeed));
   analogWrite(rightSpeedPin, abs(forwardSpeed));
 }
 
-void turnRight() {
-  stop(RIGHT);
-  delay(500);
-  change_speed(0);
+void turnRight(int action_delay=DEFAULT_ACTION_DELAY) {
+  if (forwardSpeed == 0) {
+    change_speed(DEFAULT_SPEED_STEP * 4, LEFT);
+    delay(action_delay);
+    stop();
+  }
+  else {
+    if (forwardSpeed > 0)
+      stop(RIGHT);
+    else
+      stop(LEFT);
+    delay(action_delay);
+    change_speed(0);
+  }
 }
 
-void turnLeft() {
-  stop(LEFT);
-  delay(500);
-  change_speed(0);
+void turnLeft(int action_delay=DEFAULT_ACTION_DELAY) {
+  if (forwardSpeed == 0) {
+    change_speed(DEFAULT_SPEED_STEP * 4, RIGHT);
+    delay(action_delay);
+    stop();
+  }
+  else {
+    if (forwardSpeed > 0)
+      stop(LEFT);
+    else
+      stop(RIGHT);
+    delay(action_delay);
+    change_speed(0);
+  }
 }
 
 void processControls(decode_results *results) {
-  Serial.println("In processControls");
+  char action_name[10];
+  strcpy(action_name, "");
   switch (results->value) {
     case UP_BUTTON:
-      Serial.println("UP!");
-      change_speed(25);
+      strcpy(action_name, "UP");
+      change_speed(DEFAULT_SPEED_STEP);
       break;
     case DOWN_BUTTON:
-      Serial.println("DOWN!");
-      change_speed(-25);
+      strcpy(action_name, "DOWN");
+      change_speed(-DEFAULT_SPEED_STEP);
       break;
     case LEFT_BUTTON:
-      Serial.println("LEFT!");
+      strcpy(action_name, "LEFT");
       turnLeft();
       break;
     case RIGHT_BUTTON:
-      Serial.println("RIGHT!");
+      strcpy(action_name, "RIGHT");
       turnRight();
       break;
     case STOP_BUTTON:
-      Serial.println("STOP!");
+      strcpy(action_name, "STOP");
       stop();
       break;
     default:
-      Serial.print("==> 0x");
-      Serial.println(results->value, HEX);
+      break;
+  }
+  if (DEFAULT_DEBUG_FLAG && strlen(action_name)) {
+    Serial.print("In processControls - ");
+    Serial.println(action_name);
   }
 }
 
 void loop()
 {
-
   decode_results results;
-  
+
   if (irrecv.decode(&results)) {
     processControls(&results);
-    irrecv.resume();              // Prepare for the next value
-
+    irrecv.resume();
   }
-  //delay(50);
 }
