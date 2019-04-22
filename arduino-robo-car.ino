@@ -1,4 +1,5 @@
 #include <IRremote.h>
+#include <SoftwareSerial.h>
 
 // Driver PINs
 #define rightFwdPin 11
@@ -7,6 +8,10 @@
 #define leftFwdPin 9
 #define leftBkwPin 8
 #define leftSpeedPin 6
+
+// Bluetooth controller Rx/Tx pins
+#define bluetoothRxPin 2
+#define bluetoothTxPin 4
 
 // IR Controls codes
 #define STOP_BUTTON  0x3E108
@@ -31,6 +36,7 @@ typedef enum { LEFT, RIGHT, ALL} driver_type;
 int forwardSpeed;
 
 IRrecv irrecv(2);
+SoftwareSerial BT(3, 4); // RX, TX
 
 void setup()
 {
@@ -49,6 +55,10 @@ void setup()
   Serial.println("Enabling IRin");
   irrecv.enableIRIn(); // Start the receiver
   Serial.println("Enabled IRin");
+
+  // put your setup code here, to run once:
+  BT.begin(9600);
+  BT.println("Bluetooth On please press 1 or 0 blink LED ..");
 }
 
 void forward(driver_type drive=ALL) {
@@ -212,5 +222,9 @@ void loop()
   if (irrecv.decode(&results)) {
     processControls(&results);
     irrecv.resume();
+  }
+
+  if (BT.available()) {
+    BT.println("Bluetooth...");
   }
 }
